@@ -14,7 +14,7 @@ cuBLASを用いたMatMulのパフォーマンスを測定します。
 
 # How To Use
 
-```
+```bash
 mkdir build
 cd build
 cmake .. && make
@@ -22,12 +22,23 @@ cmake .. && make
 ```
 
 実行時引数を渡すことでloop回数を変更できます。
-```
+```bash
 ./main 1000
 ```
 
 plot.pyでresultsからグラフを生成します。
 
+自分用
+
+コードを変更した際
+```bash
+cd build && rm -rf * && cmake .. && make && ./main 100000 && cd .. && python3 plot.py
+```
+
+コードを変更していない場合
+```bash
+cd build && make && ./main 100000 && cd .. && python3 plot.py
+```
 
 ## Performance
 

@@ -5,7 +5,7 @@ cmake_policy(SET CMP0146 NEW)
 
 find_package(CUDAToolkit REQUIRED)
 
-set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
+set(CMAKE_CUDA_ARCHITECTURES 75 )
 
 add_executable(main main.cpp)
 
@@ -14,4 +14,9 @@ target_link_libraries(main PRIVATE CUDA::cudart CUDA::cublas)
 set_target_properties(main PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
+)
+
+target_compile_options(main PRIVATE 
+    $<$<COMPILE_LANGUAGE:CXX>:-O3> 
+    $<$<COMPILE_LANGUAGE:CUDA>:-O3> 
 )
