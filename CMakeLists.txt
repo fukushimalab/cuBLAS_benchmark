@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.18)
+project(main LANGUAGES CXX CUDA)
+
+cmake_policy(SET CMP0146 NEW)
+
+find_package(CUDAToolkit REQUIRED)
+
+set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
+
+add_executable(main main.cpp)
+
+target_link_libraries(main PRIVATE CUDA::cudart CUDA::cublas)
+
+set_target_properties(main PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED YES
+)
