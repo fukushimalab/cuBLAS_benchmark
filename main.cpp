@@ -45,7 +45,11 @@ double calculate_median(vector<double> &data) {
 }
 
 template <DataType dtype>
-void matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const float beta, const void *d_A, const void *d_B, void * d_C) {
+float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const float beta, const void *d_A, const void *d_B, void * d_C) {
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start, 0);
     if constexpr (dtype == DataType::FP32) {
         CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
             size, size, size,
@@ -75,11 +79,26 @@ void matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const 
             CUBLAS_COMPUTE_32F,
             CUBLAS_GEMM_DEFAULT_TENSOR_OP));
     }
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+    return milliseconds;
 }
 
-template <DataType dtyep>
-void matmul_cpu(const int size, const float alpha, const float beta, const float *h_A, const float *h_B, float *h_C) {
-
+void matmul_cpu(const int size, const float alpha, const float beta, const float *src_A, const float *src_B, float *dst) {
+    std::memset(dst, 0, sizeof(float) * size * size);
+    #pragma omp parallel for
+    for (int y = 0; y < size; y++) {
+        for (int k = 0; k < size; k++) {
+            #pragma omp simd
+            for (int x = 0; x < size; x++) {
+                dst[y * size + x] += src_A[y * size + k] * src_B[k * size + x];
+            }
+        }
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -88,26 +107,27 @@ int main(int argc, char* argv[]) {
         loop_count = atoi(argv[1]);
     }
 
-    vector<int> sizes = {128, 256, 512, 1024, 2048, 4096, 8192};
     vector<DataType> data_types = {DataType::FP32, DataType::FP16, DataType::FP16_FP32_MIXED};
     ofstream outfile("../results.csv");
-    outfile << "DataType,MatrixSize,Max_GFLOPS,Min_GFLOPS,Median_GFLOPS\n";
+    outfile << "DataType,MatrixSize,Max_TIME,Min_TIME,Median_TIME\n";
 
     cublasHandle_t handle;
     CHECK_CUBLAS(cublasCreate(&handle));
 
     random_device rd;
     mt19937 gen(rd());
-    uniform_real_distribution<> rand(0, 1e9);
+    uniform_real_distribution<> rand(-1, 1);
 
-    for (const auto& dtype : data_types) {
+    // for (const auto& dtype : data_types) 
+    {
+        auto dtype = DataType::FP16;
         string dtype_str;
         switch(dtype) {
             case DataType::FP32: dtype_str = "FP32"; break;
             case DataType::FP16: dtype_str = "FP16"; break;
             case DataType::FP16_FP32_MIXED: dtype_str = "FP16_FP32_MIXED"; break;
         }
-        for (const auto& size : sizes) {
+        for (int size = 1; size <= 1 << 14; size <<= 1) {
             size_t bytes_A, bytes_B, bytes_C;
             if (dtype == DataType::FP32) {
                 bytes_A = bytes_B = bytes_C = size * size * sizeof(float);
@@ -121,31 +141,34 @@ int main(int argc, char* argv[]) {
             CHECK_CUDA(cudaMalloc(&d_A, bytes_A));
             CHECK_CUDA(cudaMalloc(&d_B, bytes_B));
             CHECK_CUDA(cudaMalloc(&d_C, bytes_C));
+            vector<float> src_A(size * size);
+            vector<float> src_B(size * size);
+            vector<float> src_C(size * size);
+            vector<half> src_A_fp16(size * size);
+            vector<half> src_B_fp16(size * size);
+
+            vector<float> dst_C(size * size);
+            vector<half> dst_C_fp16(size * size);
             if (dtype == DataType::FP32) {
-                vector<float> h_A(size * size);
-                vector<float> h_B(size * size);
                 for (int i = 0; i < size * size; i++) {
-                    h_A[i] = rand(gen);
-                    h_B[i] = rand(gen);
+                    src_A[i] = rand(gen);
+                    src_B[i] = rand(gen);
+                    // src_A[i] = (float) i;
+                    // src_B[i] = (float) i;
                 }
-                CHECK_CUDA(cudaMemcpy(d_A, h_A.data(), bytes_A, cudaMemcpyHostToDevice));
-                CHECK_CUDA(cudaMemcpy(d_B, h_B.data(), bytes_B, cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(d_A, src_A.data(), bytes_A, cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(d_B, src_B.data(), bytes_B, cudaMemcpyHostToDevice));
             } else {  
-                vector<half> h_A(size * size);
-                vector<half> h_B(size * size);
                 for (int i = 0; i < size * size; i++) {
-                    h_A[i] = half(rand(gen));
-                    h_B[i] = half(rand(gen));
+                    src_A_fp16[i] = half(src_A[i]);
+                    src_B_fp16[i] = half(src_B[i]);
                 }
-                CHECK_CUDA(cudaMemcpy(d_A, h_A.data(), bytes_A, cudaMemcpyHostToDevice));
-                CHECK_CUDA(cudaMemcpy(d_B, h_B.data(), bytes_B, cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(d_A, src_A.data(), bytes_A, cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(d_B, src_B.data(), bytes_B, cudaMemcpyHostToDevice));
             }
             constexpr float alpha = 1.0f;
             constexpr float beta = 0.0f;
-            cudaEvent_t start, stop;
-            CHECK_CUDA(cudaEventCreate(&start));
-            CHECK_CUDA(cudaEventCreate(&stop));
-            vector<double> gflops_list;
+            vector<double> time_list;
             for(int i = 0; i < 10; ++i){
                 if (dtype == DataType::FP32) {
                     matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
@@ -157,29 +180,45 @@ int main(int argc, char* argv[]) {
                     matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
             }
+            matmul_cpu(size, alpha, beta, src_A.data(), src_B.data(), src_C.data());
             for (int i = 0; i < loop_count; ++i) {
+                double milliseconds;
                 if (dtype == DataType::FP32) {
-                    matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
+                    milliseconds = matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
                 else if (dtype == DataType::FP16) {
-                    matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
+                    milliseconds = matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
                 else { 
-                    matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
+                    milliseconds = matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
-                // double seconds = milliseconds;
-                // double gflops = (2.0 * size * size * size) / (seconds * 1e6);
-                // gflops_list.push_back(gflops);
+                time_list.push_back(milliseconds * 1e3);
             }
-            double max_gflops = *max_element(gflops_list.begin(), gflops_list.end());
-            double min_gflops = *min_element(gflops_list.begin(), gflops_list.end());
-            double median_gflops = calculate_median(gflops_list);
-            outfile << dtype_str << "," << size << "," << max_gflops << "," << min_gflops << "," << median_gflops << "\n";
+            double max_time = *max_element(time_list.begin(), time_list.end());
+            double min_time = *min_element(time_list.begin(), time_list.end());
+            double median_time = calculate_median(time_list);
+            outfile << dtype_str << "," << size << "," << max_time << "," << min_time << "," << median_time << "\n";
+            if (dtype ==DataType::FP16) {
+                size_t dst_size = size * size * sizeof(half);
+                CHECK_CUDA(cudaMemcpy(dst_C_fp16.data(), d_C, dst_size, cudaMemcpyDeviceToHost));
+            } else {
+                size_t dst_size = size * size * sizeof(float);
+                CHECK_CUDA(cudaMemcpy(dst_C.data(), d_C, dst_size, cudaMemcpyDeviceToHost));
+            }
+            // for(int i = 0; i < size * size; i++) {
+            //     if (dtype ==DataType::FP16) {
+            //         if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1e-3) {
+            //             cout << src_C[i] << ' ' << __half2float(dst_C_fp16[i]) << ' ' << abs(src_C[i] - __half2float(dst_C_fp16[i])) << endl;
+            //         }
+            //     } else {
+            //         if (abs(src_C[i] - dst_C[i]) > 1e-3) {
+            //             cout << src_C[i] << ' ' << dst_C[i] << ' ' << abs(src_C[i] - dst_C[i]) << endl;
+            //         }
+            //     }
+            // }
             CHECK_CUDA(cudaFree(d_A));
             CHECK_CUDA(cudaFree(d_B));
             CHECK_CUDA(cudaFree(d_C));
-            CHECK_CUDA(cudaEventDestroy(start));
-            CHECK_CUDA(cudaEventDestroy(stop));
             std::cout << "Completed: " << dtype_str << " with size " << size << "x" << size << endl;
         }
     }

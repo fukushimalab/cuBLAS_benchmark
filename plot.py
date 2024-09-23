@@ -13,11 +13,11 @@ plt.figure(figsize=(10, 6))
 # 各データ型ごとにプロット
 for dtype in df['DataType'].unique():
     subset = df[df['DataType'] == dtype]
-    plt.plot(subset['MatrixSize'], subset['Median_GFLOPS'], marker='o', label=dtype)
+    plt.plot(subset['MatrixSize'], subset['Median_TIME'], marker='o', label=dtype)
 
 plt.title('MatMul Performance')
 plt.xlabel('Matrix Size (N x N)')
-plt.ylabel('GFLOPS')
+plt.ylabel('nano second')
 plt.legend()
 plt.xscale('log', base=2)
 plt.xticks(subset['MatrixSize'], subset['MatrixSize'])
