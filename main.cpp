@@ -118,16 +118,16 @@ int main(int argc, char* argv[]) {
     mt19937 gen(rd());
     uniform_real_distribution<> rand(-1, 1);
 
-    // for (const auto& dtype : data_types) 
+    for (const auto& dtype : data_types) 
     {
-        auto dtype = DataType::FP16;
+        // auto dtype = DataType::FP16;
         string dtype_str;
         switch(dtype) {
             case DataType::FP32: dtype_str = "FP32"; break;
             case DataType::FP16: dtype_str = "FP16"; break;
             case DataType::FP16_FP32_MIXED: dtype_str = "FP16_FP32_MIXED"; break;
         }
-        for (int size = 1; size <= 1 << 14; size <<= 1) {
+        for (int size = 1; size <= 1 << 11; size <<= 1) {
             size_t bytes_A, bytes_B, bytes_C;
             if (dtype == DataType::FP32) {
                 bytes_A = bytes_B = bytes_C = size * size * sizeof(float);
