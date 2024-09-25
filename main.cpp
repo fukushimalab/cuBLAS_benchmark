@@ -6,6 +6,8 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cuda_fp16.hpp>
+#include <immintrin.h> 
+#include <avxintrin.h>
 using namespace std;
 
 #define CHECK_CUDA(call)                                                     \
@@ -98,10 +100,18 @@ float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const
 void matmul_cpu(const int size, const float alpha, const float beta, const float *src_A, const float *src_B, float *dst) {
     std::memset(dst, 0, sizeof(float) * size * size);
     #pragma omp parallel for
-    for (int y = 0; y < size; y++) {
+    for (int x = 0; x < size; x++) {
         for (int k = 0; k < size; k++) {
-            #pragma omp simd
-            for (int x = 0; x < size; x++) {
+            __m256 b_val = _mm256_set1_ps(src_B[x * size + k]);
+            int y = 0;
+            for (; y < size - 8; y+=8) {
+                __m256 a_vals = _mm256_loadu_ps(&src_A[k * size + y]);
+                __m256 d_vals = _mm256_loadu_ps(&dst[x * size + y]);
+                __m256 mul = _mm256_mul_ps(a_vals, b_val);
+                __m256 result = _mm256_add_ps(d_vals, mul);
+                _mm256_storeu_ps(&dst[x * size + y], result);
+            }
+            for (; y < size; y++) {
                 dst[x * size + y] += src_A[k * size + y] * src_B[x * size + k];
             }
         }
@@ -176,16 +186,16 @@ int main(int argc, char* argv[]) {
             constexpr float alpha = 1.0f;
             constexpr float beta = 0.0f;
             vector<double> time_list;
-            for(int i = 0; i < 10; ++i){
-                // if (dtype == DataType::FP32) {
-                //     matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
-                // }
-                // else if (dtype == DataType::FP16) {
-                //     matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
-                // }
-                // else { 
-                //     matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
-                // }
+            for(int i = 0; i < 10; ++i) {
+                if (dtype == DataType::FP32) {
+                    matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
+                }
+                else if (dtype == DataType::FP16) {
+                    matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
+                }
+                else { 
+                    matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
+                }
             }
             matmul_cpu(size, alpha, beta, src_A.data(), src_B.data(), src_C.data());
             for (int i = 0; i < loop_count; ++i) {
@@ -218,7 +228,7 @@ int main(int argc, char* argv[]) {
             }
             for(int i = 0; i < size * size; i++) {
                 if (dtype ==DataType::FP16) {
-                    if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1e-3) {
+                    if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1e-5) {
                         cout << src_C[i] << ' ' << __half2float(dst_C_fp16[i]) << ' ' << abs(src_C[i] - __half2float(dst_C_fp16[i])) << endl;
                     }
                 } else {

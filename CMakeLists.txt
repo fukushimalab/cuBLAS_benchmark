@@ -23,6 +23,8 @@ set_target_properties(main PROPERTIES
 )
 
 target_compile_options(main PRIVATE 
-    $<$<COMPILE_LANGUAGE:CXX>:-O3> 
-    $<$<COMPILE_LANGUAGE:CUDA>:-O3> 
+    -O3
+    -fopenmp
+    -mavx2
+    -march=native
 )
