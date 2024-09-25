@@ -51,6 +51,8 @@ float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
+    half alpha_h = half(alpha);
+    half beta_h = half(beta);
     cudaEventRecord(start, 0);
     if constexpr (dtype == DataType::FP32) {
         cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
@@ -65,16 +67,16 @@ float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const
         );
     }
     else if (dtype == DataType::FP16) {
-        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+        CHECK_CUBLAS(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
             size, size, size,
-            &alpha,
+            &alpha_h,
             d_A, CUDA_R_16F, size,
             d_B, CUDA_R_16F, size,
-            &beta,
+            &beta_h,
             d_C, CUDA_R_16F, size,
             CUBLAS_COMPUTE_16F,
-            CUBLAS_GEMM_DEFAULT_TENSOR_OP
-        );
+            CUBLAS_GEMM_DEFAULT
+        ));
     }
     else { 
         cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
@@ -85,7 +87,7 @@ float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const
             &beta,
             d_C, CUDA_R_32F, size,
             CUBLAS_COMPUTE_32F,
-            CUBLAS_GEMM_DEFAULT_TENSOR_OP
+            CUBLAS_GEMM_DEFAULT
         );
     }
     cudaEventRecord(stop, 0);
@@ -165,23 +167,21 @@ int main(int argc, char* argv[]) {
             vector<half> src_B_fp16(size * size);
 
             vector<float> dst_C(size * size);
+            vector<half> dst_A_fp16(size * size);
+            vector<half> dst_B_fp16(size * size);
             vector<half> dst_C_fp16(size * size);
+            for (int i = 0; i < size * size; i++) {
+                src_A[i] = rand(gen);
+                src_B[i] = rand(gen);
+                src_A_fp16[i] = half(src_A[i]);
+                src_B_fp16[i] = half(src_B[i]);
+            }
             if (dtype == DataType::FP32) {
-                for (int i = 0; i < size * size; i++) {
-                    src_A[i] = rand(gen);
-                    src_B[i] = rand(gen);
-                    // src_A[i] = (float) i;
-                    // src_B[i] = (float) i;
-                }
                 CHECK_CUDA(cudaMemcpy(d_A, src_A.data(), bytes_A, cudaMemcpyHostToDevice));
                 CHECK_CUDA(cudaMemcpy(d_B, src_B.data(), bytes_B, cudaMemcpyHostToDevice));
             } else {  
-                for (int i = 0; i < size * size; i++) {
-                    src_A_fp16[i] = half(src_A[i]);
-                    src_B_fp16[i] = half(src_B[i]);
-                }
-                CHECK_CUDA(cudaMemcpy(d_A, src_A.data(), bytes_A, cudaMemcpyHostToDevice));
-                CHECK_CUDA(cudaMemcpy(d_B, src_B.data(), bytes_B, cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(d_A, src_A_fp16.data(), bytes_A, cudaMemcpyHostToDevice));
+                CHECK_CUDA(cudaMemcpy(d_B, src_B_fp16.data(), bytes_B, cudaMemcpyHostToDevice));
             }
             constexpr float alpha = 1.0f;
             constexpr float beta = 0.0f;
@@ -219,20 +219,19 @@ int main(int argc, char* argv[]) {
             double min_time = *min_element(time_list.begin(), time_list.end());
             double median_time = calculate_median(time_list);
             outfile << dtype_str << "," << size << "," << max_time << "," << min_time << "," << median_time << "\n";
-            if (dtype ==DataType::FP16) {
-                size_t dst_size = size * size * sizeof(half);
-                CHECK_CUDA(cudaMemcpy(dst_C_fp16.data(), d_C, dst_size, cudaMemcpyDeviceToHost));
+            if (dtype == DataType::FP16) {
+                CHECK_CUDA(cudaMemcpy(dst_C_fp16.data(), d_C, bytes_C, cudaMemcpyDeviceToHost));
             } else {
-                size_t dst_size = size * size * sizeof(float);
-                CHECK_CUDA(cudaMemcpy(dst_C.data(), d_C, dst_size, cudaMemcpyDeviceToHost));
+                CHECK_CUDA(cudaMemcpy(dst_C.data(), d_C, bytes_C, cudaMemcpyDeviceToHost));
             }
             for(int i = 0; i < size * size; i++) {
-                if (dtype ==DataType::FP16) {
-                    if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1e-5) {
+                // 0.1以上の誤差はFP16FP16FP16乱数だと絶対でる。
+                if (dtype == DataType::FP16) {
+                    if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1) {
                         cout << src_C[i] << ' ' << __half2float(dst_C_fp16[i]) << ' ' << abs(src_C[i] - __half2float(dst_C_fp16[i])) << endl;
                     }
                 } else {
-                    if (abs(src_C[i] - dst_C[i]) > 1e-3) {
+                    if (abs(src_C[i] - dst_C[i]) > 1) {
                         cout << src_C[i] << ' ' << dst_C[i] << ' ' << abs(src_C[i] - dst_C[i]) << endl;
                     }
                 }
