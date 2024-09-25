@@ -30,11 +30,6 @@ plot.pyでresultsからグラフを生成します。
 
 自分用
 
-コードを変更した際
-```bash
-cd build && rm -rf * && cmake .. && make && ./main 100000 && cd .. && python3 plot.py
-```
-
 コードを変更していない場合
 ```bash
 cd build && make && ./main 100000 && cd .. && python3 plot.py
@@ -43,4 +38,3 @@ cd build && make && ./main 100000 && cd .. && python3 plot.py
 ## Performance
 
 ### 4090
-![](output_4090.png)
