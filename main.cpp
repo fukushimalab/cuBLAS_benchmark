@@ -102,7 +102,7 @@ void matmul_cpu(const int size, const float alpha, const float beta, const float
         for (int k = 0; k < size; k++) {
             #pragma omp simd
             for (int x = 0; x < size; x++) {
-                dst[y * size + x] += src_A[y * size + k] * src_B[k * size + x];
+                dst[x * size + y] += src_A[k * size + y] * src_B[x * size + k];
             }
         }
     }
@@ -216,17 +216,17 @@ int main(int argc, char* argv[]) {
                 size_t dst_size = size * size * sizeof(float);
                 CHECK_CUDA(cudaMemcpy(dst_C.data(), d_C, dst_size, cudaMemcpyDeviceToHost));
             }
-            // for(int i = 0; i < size * size; i++) {
-            //     if (dtype ==DataType::FP16) {
-            //         if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1e-3) {
-            //             cout << src_C[i] << ' ' << __half2float(dst_C_fp16[i]) << ' ' << abs(src_C[i] - __half2float(dst_C_fp16[i])) << endl;
-            //         }
-            //     } else {
-            //         if (abs(src_C[i] - dst_C[i]) > 1e-3) {
-            //             cout << src_C[i] << ' ' << dst_C[i] << ' ' << abs(src_C[i] - dst_C[i]) << endl;
-            //         }
-            //     }
-            // }
+            for(int i = 0; i < size * size; i++) {
+                if (dtype ==DataType::FP16) {
+                    if (abs(src_C[i] - __half2float(dst_C_fp16[i])) > 1e-3) {
+                        cout << src_C[i] << ' ' << __half2float(dst_C_fp16[i]) << ' ' << abs(src_C[i] - __half2float(dst_C_fp16[i])) << endl;
+                    }
+                } else {
+                    if (abs(src_C[i] - dst_C[i]) > 1e-3) {
+                        cout << src_C[i] << ' ' << dst_C[i] << ' ' << abs(src_C[i] - dst_C[i]) << endl;
+                    }
+                }
+            }
             CHECK_CUDA(cudaFree(d_A));
             CHECK_CUDA(cudaFree(d_B));
             CHECK_CUDA(cudaFree(d_C));
