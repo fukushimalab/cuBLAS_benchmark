@@ -13,7 +13,7 @@ for dtype in df['DataType'].unique():
 
 plt.title('MatMul Performance (Linear y-axis)')
 plt.xlabel('Matrix Size (N x N)')
-plt.ylabel('nano second')
+plt.ylabel('micro second')
 plt.legend()
 plt.xscale('log', base=2)
 plt.xticks(subset['MatrixSize'], subset['MatrixSize'])
@@ -29,7 +29,7 @@ for dtype in df['DataType'].unique():
 
 plt.title('MatMul Performance (Logarithmic y-axis)')
 plt.xlabel('Matrix Size (N x N)')
-plt.ylabel('nano second')
+plt.ylabel('micro second')
 plt.yscale('log')
 plt.legend()
 plt.xscale('log', base=2)
