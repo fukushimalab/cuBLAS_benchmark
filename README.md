@@ -37,9 +37,16 @@ cd build && make && ./main 100000 && cd .. && python3 plot.py
 
 ## Performance
 
-### 4090
 
-#### Linear-scale
+### Linear-scale
+#### titan
+![](output_titan_linear.png)
+#### 4090
 ![](output_4090_linear.png)
-#### Log-scale
+
+### Log-scale
+#### titan
+![](output_titan_log.png)
+#### 4090
 ![](output_4090_log.png)
+

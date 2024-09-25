@@ -121,7 +121,7 @@ void matmul_cpu(const int size, const float alpha, const float beta, const float
 }
 
 int main(int argc, char* argv[]) {
-    int loop_count = 100;
+    int loop_count = 10000;
     if (argc > 1) {
         loop_count = atoi(argv[1]);
     }
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
             case DataType::FP16: dtype_str = "FP16"; break;
             case DataType::FP16_FP32_MIXED: dtype_str = "FP16_FP32_MIXED"; break;
         }
-        for (int size = 1; size <= 1 << 11; size <<= 1) {
+        for (int size = 1 << 7; size <= 1 << 11; size <<= 1) {
             size_t bytes_A, bytes_B, bytes_C;
             if (dtype == DataType::FP32) {
                 bytes_A = bytes_B = bytes_C = size * size * sizeof(float);
