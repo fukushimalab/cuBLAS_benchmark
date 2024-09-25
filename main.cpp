@@ -51,25 +51,31 @@ float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const
     cudaEventCreate(&stop);
     cudaEventRecord(start, 0);
     if constexpr (dtype == DataType::FP32) {
-        CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
             size, size, size,
             &alpha,
-            (const float*)d_A, size,
-            (const float*)d_B, size,
+            d_A, CUDA_R_32F, size,
+            d_B, CUDA_R_32F, size,
             &beta,
-            (float*)d_C, size));
+            d_C, CUDA_R_32F, size,
+            CUBLAS_COMPUTE_32F,
+            CUBLAS_GEMM_DEFAULT
+        );
     }
     else if (dtype == DataType::FP16) {
-        CHECK_CUBLAS(cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
             size, size, size,
-            (__half*)&alpha,
-            (const half*)d_A, size,
-            (const half*)d_B, size,
-            (__half*)&beta,
-            (half*)d_C, size));
+            &alpha,
+            d_A, CUDA_R_16F, size,
+            d_B, CUDA_R_16F, size,
+            &beta,
+            d_C, CUDA_R_16F, size,
+            CUBLAS_COMPUTE_16F,
+            CUBLAS_GEMM_DEFAULT_TENSOR_OP
+        );
     }
     else { 
-        CHECK_CUBLAS(cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
             size, size, size,
             &alpha,
             d_A, CUDA_R_16F, size,
@@ -77,7 +83,8 @@ float matmul_gpu(cublasHandle_t handle, const int size, const float alpha, const
             &beta,
             d_C, CUDA_R_32F, size,
             CUBLAS_COMPUTE_32F,
-            CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+            CUBLAS_GEMM_DEFAULT_TENSOR_OP
+        );
     }
     cudaEventRecord(stop, 0);
     cudaEventSynchronize(stop);
@@ -110,7 +117,7 @@ int main(int argc, char* argv[]) {
     vector<DataType> data_types = {DataType::FP32, DataType::FP16, DataType::FP16_FP32_MIXED};
     ofstream outfile("../results.csv");
     outfile << "DataType,MatrixSize,Max_TIME,Min_TIME,Median_TIME\n";
-
+    ofstream timedata("../time_lists.txt");
     cublasHandle_t handle;
     CHECK_CUBLAS(cublasCreate(&handle));
 
@@ -170,28 +177,32 @@ int main(int argc, char* argv[]) {
             constexpr float beta = 0.0f;
             vector<double> time_list;
             for(int i = 0; i < 10; ++i){
-                if (dtype == DataType::FP32) {
-                    matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
-                }
-                else if (dtype == DataType::FP16) {
-                    matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
-                }
-                else { 
-                    matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
-                }
+                // if (dtype == DataType::FP32) {
+                //     matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
+                // }
+                // else if (dtype == DataType::FP16) {
+                //     matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
+                // }
+                // else { 
+                //     matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
+                // }
             }
             matmul_cpu(size, alpha, beta, src_A.data(), src_B.data(), src_C.data());
             for (int i = 0; i < loop_count; ++i) {
                 double milliseconds;
                 if (dtype == DataType::FP32) {
+                    CHECK_CUDA(cudaMemset(d_C, 0.f, bytes_C));
                     milliseconds = matmul_gpu<DataType::FP32>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
                 else if (dtype == DataType::FP16) {
+                    CHECK_CUDA(cudaMemset(d_C, half(0.f), bytes_C));
                     milliseconds = matmul_gpu<DataType::FP16>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
                 else { 
+                    CHECK_CUDA(cudaMemset(d_C, 0.f, bytes_C));
                     milliseconds = matmul_gpu<DataType::FP16_FP32_MIXED>(handle, size, alpha, beta, d_A, d_B, d_C);
                 }
+                timedata << i << ": " << milliseconds * 1000 << "micro seconds" << endl;
                 time_list.push_back(milliseconds * 1e3);
             }
             double max_time = *max_element(time_list.begin(), time_list.end());
