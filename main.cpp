@@ -25,7 +25,7 @@ using namespace std;
         cublasStatus_t status = call;                                        \
         if (status != CUBLAS_STATUS_SUCCESS) {                               \
             cerr << "CUBLAS error in " << __FILE__ << ":" << __LINE__   \
-                      << " - " << status << endl;                       \
+                      << " - " << cublasGetErrorString(status) << endl;                       \
             exit(EXIT_FAILURE);                                              \
         }                                                                    \
     }
@@ -35,6 +35,22 @@ enum class DataType {
     FP16,
     FP16_FP32_MIXED
 };
+
+string cublasGetErrorString(cublasStatus_t status) {
+    switch(status) {
+        case CUBLAS_STATUS_SUCCESS : return "CUBLAS_STATUS_SUCCESS";
+        case CUBLAS_STATUS_NOT_INITIALIZED : return "CUBLAS_STATUS_NOT_INITIALIZED";
+        case CUBLAS_STATUS_ALLOC_FAILED : return "CUBLAS_STATUS_ALLOC_FAILED";
+        case CUBLAS_STATUS_INVALID_VALUE : return "CUBLAS_STATUS_INVALID_VALUE";
+        case CUBLAS_STATUS_ARCH_MISMATCH : return "CUBLAS_STATUS_ARCH_MISMATCH";
+        case CUBLAS_STATUS_MAPPING_ERROR : return "CUBLAS_STATUS_MAPPING_ERROR";
+        case CUBLAS_STATUS_EXECUTION_FAILED : return "CUBLAS_STATUS_EXECUTION_FAILED";
+        case CUBLAS_STATUS_INTERNAL_ERROR : return "CUBLAS_STATUS_INTERNAL_ERROR";
+        case CUBLAS_STATUS_NOT_SUPPORTED : return "CUBLAS_STATUS_NOT_SUPPORTED";
+        case CUBLAS_STATUS_LICENSE_ERROR : return "CUBLAS_STATUS_LICENSE_ERROR";
+    }
+    return nullptr;
+}
 
 double calculate_median(vector<double> &data) {
     if (data.empty()) return 0.0;
@@ -130,6 +146,7 @@ int main(int argc, char* argv[]) {
     ofstream outfile("../results.csv");
     outfile << "DataType,MatrixSize,Max_TIME,Min_TIME,Median_TIME\n";
     ofstream timedata("../time_lists.txt");
+    cudaSetDevice(0);
     cublasHandle_t handle;
     CHECK_CUBLAS(cublasCreate(&handle));
 
