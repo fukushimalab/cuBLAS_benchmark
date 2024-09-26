@@ -41,12 +41,15 @@ cd build && make && ./main 100000 && cd .. && python3 plot.py
 ### Linear-scale
 #### titan
 ![](output_titan_linear.png)
+#### 3090
+![](output_3090_linear.png)
 #### 4090
 ![](output_4090_linear.png)
 
 ### Log-scale
 #### titan
 ![](output_titan_log.png)
+#### 3090
+![](output_3090_log.png)
 #### 4090
 ![](output_4090_log.png)
-
