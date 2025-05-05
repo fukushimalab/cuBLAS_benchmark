@@ -1,39 +1,69 @@
 import pandas as pd
+import matplotlib
+# ← GUI バックエンドを切り、ファイル出力専用に。
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-df = pd.read_csv('results.csv')
+def plot_all():
+    # --- データ読み込み＆pivot（一度だけ） ---
+    df = pd.read_csv('results.csv')
+    # 行：MatrixSize、列：DataType、値：GFLOPS / Median_TIME_us
+    gflops = df.pivot(index='MatrixSize', columns='DataType', values='GFLOPS')
+    time   = df.pivot(index='MatrixSize', columns='DataType', values='Median_TIME_us')
 
-sns.set(style="whitegrid")
-plt.figure(figsize=(10, 6))
+    # 共通 x 軸値（等間隔カテゴリ）
+    sizes = gflops.index.values
+    x = range(len(sizes))
 
-for dtype in df['DataType'].unique():
-    subset = df[df['DataType'] == dtype]
-    plt.plot(subset['MatrixSize'], subset['Median_TIME'], marker='o', label=dtype)
+    # 描画共通設定
+    grid_opts = dict(which='both', linestyle='--', linewidth=0.5)
+    save_opts = dict(dpi=80)  # ←DPI下げてファイル書き出しを高速化
 
-plt.title('MatMul Performance (Linear y-axis)')
-plt.xlabel('Matrix Size (N x N)')
-plt.ylabel('micro second')
-plt.legend()
-plt.xscale('log', base=2)
-plt.xticks(subset['MatrixSize'], subset['MatrixSize'])
-plt.grid(True, which="both", ls="--", linewidth=0.5)
-plt.savefig('output_linear.png') 
-plt.show()
+    # --- A) GFLOPS ---
+    fig, ax = plt.subplots(figsize=(8,5))
+    for col in gflops.columns:
+        ax.plot(x, gflops[col].values, marker='o', label=col)
+    ax.set_xticks(x);          ax.set_xticklabels(sizes)
+    ax.set_title('MatMul Performance: GFLOPS')
+    ax.set_xlabel('Matrix Size (N x N)')
+    ax.set_ylabel('GFLOPS')
+    ax.grid(**grid_opts)
+    fig.tight_layout()
+    fig.savefig('png/output_gflops.png', **save_opts)
+    fig.savefig('pdf/output_gflops.pdf', **save_opts)
+    
+    plt.close(fig)
 
-plt.figure(figsize=(10, 6))
+    # --- B) Time（線形 y） ---
+    fig, ax = plt.subplots(figsize=(8,5))
+    for col in time.columns:
+        ax.plot(x, time[col].values, marker='o', label=col)
+    ax.set_xticks(x);          ax.set_xticklabels(sizes)
+    ax.set_title('Execution Time (Linear)')
+    ax.set_xlabel('Matrix Size (N x N)')
+    ax.set_ylabel('Median Time (µs)')
+    ax.grid(**grid_opts)
+    fig.tight_layout()
+    fig.savefig('png/output_time_linear.png', **save_opts) 
+    fig.savefig('pdf/output_time_linear.pdf', **save_opts)
+    
+    plt.close(fig)
 
-for dtype in df['DataType'].unique():
-    subset = df[df['DataType'] == dtype]
-    plt.plot(subset['MatrixSize'], subset['Median_TIME'], marker='o', label=dtype)
+    # --- C) Time（対数 y） ---
+    fig, ax = plt.subplots(figsize=(8,5))
+    for col in time.columns:
+        ax.plot(x, time[col].values, marker='o', label=col)
+    ax.set_xticks(x);          ax.set_xticklabels(sizes)
+    ax.set_yscale('log')
+    ax.set_title('Execution Time (Log Scale)')
+    ax.set_xlabel('Matrix Size (N x N)')
+    ax.set_ylabel('Median Time (µs)')
+    ax.grid(**grid_opts)
+    fig.tight_layout()
+    fig.savefig('png/output_time_log.png', **save_opts)
+    fig.savefig('pdf/output_time_log.pdf', **save_opts)
+    plt.close(fig)
 
-plt.title('MatMul Performance (Logarithmic y-axis)')
-plt.xlabel('Matrix Size (N x N)')
-plt.ylabel('micro second')
-plt.yscale('log')
-plt.legend()
-plt.xscale('log', base=2)
-plt.xticks(subset['MatrixSize'], subset['MatrixSize'])
-plt.grid(True, which="both", ls="--", linewidth=0.5)
-plt.savefig('output_log.png')
-plt.show()
+if __name__ == '__main__':
+    plot_all()
+
