@@ -8,7 +8,6 @@ cuBLASを用いたMatMulのパフォーマンスを測定します。
 - g++
 - CMake
 - python
-    - seaborn
     - matplotlib
     - pandas
 
@@ -40,16 +39,30 @@ cd build && make && ./main 100000 && cd .. && python3 plot.py
 
 ### Linear-scale
 #### titan
-![](output_titan_linear.png)
+![](pdf/titan/output_time_linear.pdf)
 #### 3090
-![](output_3090_linear.png)
+![](pdf/3090/output_time_linear.pdf)
 #### 4090
-![](output_4090_linear.png)
+![](pdf/4090/output_time_linear.pdf)
+#### 5090
+![](pdf/5090/output_time_linear.pdf)
 
 ### Log-scale
 #### titan
-![](output_titan_log.png)
+![](pdf/titan/output_time_log.pdf)
 #### 3090
-![](output_3090_log.png)
+![](pdf/3090/output_time_log.pdf)
 #### 4090
-![](output_4090_log.png)
+![](pdf/4090/output_time_log.pdf)
+#### 5090
+![](pdf/5090/output_time_log.pdf)
+
+### Giga-FLOPS
+#### titan
+![](pdf/titan/output_gflops.pdf)
+#### 3090
+![](pdf/3090/output_gflops.pdf)
+#### 4090
+![](pdf/4090/output_gflops.pdf)
+#### 5090
+![](pdf/5090/output_gflops.pdf)
