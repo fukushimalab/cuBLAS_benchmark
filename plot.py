@@ -60,7 +60,8 @@ def plot_all():
     ax.set_ylabel('Median Time (µs)')
     ax.grid(**grid_opts)
     fig.tight_layout()
-    fig.savefig('output_time_log.png', **save_opts)
+    fig.savefig('png/output_time_log.png', **save_opts)
+    fig.savefig('pdf/output_time_log.pdf', **save_opts)
     plt.close(fig)
 
 if __name__ == '__main__':
