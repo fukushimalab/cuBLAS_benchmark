@@ -6,7 +6,7 @@ cmake_policy(SET CMP0146 NEW)
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
 
-set(CMAKE_CUDA_ARCHITECTURES 75 86 89)
+set(CMAKE_CUDA_ARCHITECTURES 75 86 89 120)
 
 add_executable(main main.cpp)
 
