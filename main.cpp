@@ -53,7 +53,7 @@ enum class DataType {
 
 const char* get_dtype_name(DataType dtype) {
     switch(dtype) {
-        case DataType::FP32: return "FP32";
+        case DataType::FP32: return "FP32_CUDA";
         case DataType::FP16_CUDA: return "FP16_CUDA";
         case DataType::FP16_TENSOR: return "FP16_TENSOR";
         case DataType::FP16_FP32_MIXED_CUDA: return "FP16_FP32_MIXED_CUDA";
