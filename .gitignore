@@ -3,3 +3,5 @@ ncu/
 .vscode/
 output_linear.png
 output_log.png
+env/
+
