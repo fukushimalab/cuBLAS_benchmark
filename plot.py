@@ -1,9 +1,35 @@
+import argparse
+from pathlib import Path
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-def plot_with_description():
+def ensure_out_dirs():
+    Path('png').mkdir(exist_ok=True)
+    Path('pdf').mkdir(exist_ok=True)
+
+def save_legend(labels, save_opts, legend_cols=1, legend_fontsize=11):
+    fig, ax = plt.subplots(figsize=(6, 4))
+    handles = []
+    for label in labels:
+        (line,) = ax.plot([], [], marker='o', label=label)
+        handles.append(line)
+    ax.legend(
+        handles=handles,
+        labels=labels,
+        fontsize=legend_fontsize,
+        loc='center',
+        ncol=legend_cols,
+        frameon=False,
+    )
+    ax.axis('off')
+    fig.tight_layout()
+    fig.savefig('png/output_legend.png', bbox_inches='tight', **save_opts)
+    fig.savefig('pdf/output_legend.pdf', bbox_inches='tight', **save_opts)
+    plt.close(fig)
+
+def plot_with_description(plot_only=False, legend_cols=1, legend_fontsize=11):
     df = pd.read_csv('results.csv')
     # pivot → NumPy配列アクセスだけに
     gflops = df.pivot(index='MatrixSize', columns='DataType', values='GFLOPS')
@@ -13,6 +39,8 @@ def plot_with_description():
 
     grid_opts = dict(which='both', linestyle='--', linewidth=0.5)
     save_opts = dict(dpi=300)
+
+    ensure_out_dirs()
 
     # --- GFLOPS ---
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -60,6 +88,31 @@ def plot_with_description():
     fig.savefig('pdf/output_time_log.pdf', **save_opts)
     plt.close(fig)
 
-if __name__ == '__main__':
-    plot_with_description()
+    if not plot_only:
+        save_legend(list(gflops.columns), save_opts, legend_cols, legend_fontsize)
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--plot-only',
+        action='store_true',
+        help='plot graphs only (skip legend-only output)',
+    )
+    parser.add_argument(
+        '--legend-cols',
+        type=int,
+        default=1,
+        help='number of columns in legend-only output',
+    )
+    parser.add_argument(
+        '--legend-fontsize',
+        type=int,
+        default=11,
+        help='legend font size (default: 11)',
+    )
+    args = parser.parse_args()
+    plot_with_description(
+        plot_only=args.plot_only,
+        legend_cols=args.legend_cols,
+        legend_fontsize=args.legend_fontsize,
+    )
